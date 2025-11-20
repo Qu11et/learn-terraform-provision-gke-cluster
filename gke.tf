@@ -51,7 +51,7 @@ resource "google_container_node_pool" "primary_nodes" {
   cluster    = google_container_cluster.primary.name
   project  = var.project_id
   
-  version = data.google_container_engine_versions.gke_version.latest_node_version
+  version = "1.32.9-gke.1130000"
   node_count = var.gke_num_nodes
 
   node_config {
@@ -68,8 +68,7 @@ resource "google_container_node_pool" "primary_nodes" {
     # preemptible  = true
     machine_type = "n1-standard-1"
     disk_size_gb = 32
-    disk_type    = "pd-standard"
-    image_type     = "COS_CONTAINERD" 
+    disk_type    = "pd-standard" 
     tags         = ["gke-node", "${var.project_id}-gke"]
     metadata = {
       disable-legacy-endpoints = "true"
