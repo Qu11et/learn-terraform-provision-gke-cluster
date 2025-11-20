@@ -42,10 +42,7 @@ pipeline {
 
     post {
         always {
-            script {
-                // Dọn dẹp workspace
-                cleanWs()
-            }
+            echo 'Pipeline completed.'
         }
         failure {
             echo 'Pipeline failed. Please check the logs.'
