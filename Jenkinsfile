@@ -6,7 +6,8 @@ pipeline {
         REGION       = credentials('gke-region')
         CLUSTER_NAME = credentials('gke-cluster-name')
         
-        GCP_CRED_ID = 'gcp-service-account-key' 
+        GCP_CRED_ID = 'gcp-service-account-key'
+        REPORT_FILE  = "report.json" 
     }
 
     triggers {
