@@ -69,16 +69,11 @@ resource "google_container_node_pool" "primary_nodes" {
     machine_type = "n1-standard-1"
     disk_size_gb = 32
     disk_type    = "pd-standard"
+    image_type     = "COS_CONTAINERD" 
     tags         = ["gke-node", "${var.project_id}-gke"]
     metadata = {
       disable-legacy-endpoints = "true"
     }
-  }
-
-  lifecycle {
-    ignore_changes = [
-      version,
-    ]
   }
 }
 
