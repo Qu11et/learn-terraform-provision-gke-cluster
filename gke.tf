@@ -24,7 +24,7 @@ data "google_container_engine_versions" "gke_version" {
 }
 
 resource "google_container_cluster" "primary" {
-  name     = "${var.project_id}-gke2"
+  name     = "${var.project_id}-gke"
   location = "${var.region}-a"
   project  = var.project_id
 
