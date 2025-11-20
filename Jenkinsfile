@@ -38,6 +38,67 @@ pipeline {
                 }
             }
         }
+        
+        stage('Security Audit (CIS Benchmark)') {
+            steps {
+                script {
+                    echo "--- Deploying Kube-bench Job ---"
+                    
+                    sh 'kubectl delete job kube-bench-gke --ignore-not-found=true'
+
+                    sh 'kubectl apply -f kube-bench-job.yaml'
+
+                    try {
+                        sh 'kubectl wait --for=condition=complete --timeout=120s job/kube-bench-gke'
+                    } catch (Exception e) {
+                        error "Kube-bench job timed out! Something is wrong with the cluster."
+                    }
+
+                    sh "kubectl logs job/kube-bench-gke > ${REPORT_FILE}"
+                    
+                    echo "Report saved to ${REPORT_FILE}"
+                }
+            }
+        }
+
+        stage('Analyze Security Results') {
+            steps {
+                script {
+                    echo "--- Analyzing CIS Report ---"
+                    
+                    def failCount = sh(
+                        script: "cat ${REPORT_FILE} | jq '[.. | select(.status? == \"FAIL\")] | length'", 
+                        returnStdout: true
+                    ).trim().toInteger()
+
+                    echo "Total Security Failures Found: ${failCount}"
+                    
+                    archiveArtifacts artifacts: REPORT_FILE, fingerprint: true
+
+                    if (failCount > 0) {
+                        echo "Details of Failures:"
+                        sh "cat ${REPORT_FILE} | jq '.. | select(.status? == \"FAIL\") | {ID: .test_number, Desc: .test_desc, Remediation: .remediation}'"
+                        
+                        error "⛔ SECURITY CHECK FAILED: Found ${failCount} violations. Deployment blocked!"
+                    } else {
+                        echo "✅ Security Check Passed! Cluster is compliant."
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Application (Simulated)') {
+            steps {
+                script {
+                    echo "=============================================="
+                    echo "🚀 CONGRATULATIONS! ALL SECURITY CHECKS PASSED"
+                    echo "=============================================="
+                    echo "Deploying application to production..."
+                    echo "..."
+                    echo "Application Deployed Successfully."
+                }
+            }
+        }
     }
 
     post {
