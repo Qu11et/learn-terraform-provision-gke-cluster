@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        PROJECT_ID = 'gcp-project-id'
-        REGION     = 'gke-region'
-        CLUSTER_NAME = 'gke-cluster-name'
+        PROJECT_ID   = credentials('gcp-project-id')
+        REGION       = credentials('gke-region')
+        CLUSTER_NAME = credentials('gke-cluster-name')
         
         GCP_CRED_ID = 'gcp-service-account-key' 
     }
