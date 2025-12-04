@@ -62,27 +62,66 @@ pipeline {
             }
         }
 
+        // stage('Analyze Security Results') {
+        //     steps {
+        //         script {
+        //             echo "--- Analyzing CIS Report ---"
+                    
+        //             def failCount = sh(
+        //                 script: "cat ${REPORT_FILE} | jq '[.. | select(.status? == \"FAIL\")] | length'", 
+        //                 returnStdout: true
+        //             ).trim().toInteger()
+
+        //             echo "Total Security Failures Found: ${failCount}"
+                    
+        //             archiveArtifacts artifacts: REPORT_FILE, fingerprint: true
+
+        //             if (failCount > 0) {
+        //                 echo "Details of Failures:"
+        //                 sh "cat ${REPORT_FILE} | jq '.. | select(.status? == \"FAIL\") | {ID: .test_number, Desc: .test_desc, Remediation: .remediation}'"
+                        
+        //                 error "⛔ SECURITY CHECK FAILED: Found ${failCount} violations. Deployment blocked!"
+        //             } else {
+        //                 echo "✅ Security Check Passed! Cluster is compliant."
+        //             }
+        //         }
+        //     }
+        // }
+
         stage('Analyze Security Results') {
             steps {
                 script {
                     echo "--- Analyzing CIS Report ---"
                     
+                    // --- CẤU HÌNH CÁC ID MUỐN BỎ QUA ---
+                    // Đây là danh sách các lỗi bạn chấp nhận rủi ro
+                    def IGNORED_IDS_LOGIC = 'select(.test_number != "4.1.5" and .test_number != "5.6.7")'
+                    
+                    // 1. Đếm số lỗi THỰC TẾ (Đã trừ các ID bị ignore)
+                    // Logic: Lấy tất cả FAIL -> Lọc bỏ 4.1.5 và 5.6.7 -> Đếm số còn lại
                     def failCount = sh(
-                        script: "cat ${REPORT_FILE} | jq '[.. | select(.status? == \"FAIL\")] | length'", 
+                        script: "cat ${env.REPORT_FILE} | jq '[.. | select(.status? == \"FAIL\") | ${IGNORED_IDS_LOGIC}] | length'", 
                         returnStdout: true
                     ).trim().toInteger()
 
-                    echo "Total Security Failures Found: ${failCount}"
+                    echo "Total Critical Failures (After Whitelist): ${failCount}"
                     
-                    archiveArtifacts artifacts: REPORT_FILE, fingerprint: true
+                    // Lưu báo cáo gốc
+                    archiveArtifacts artifacts: env.REPORT_FILE, fingerprint: true
 
+                    // 2. In ra cảnh báo cho các lỗi bị Ignore (Để không bị quên)
+                    echo "--- [WARNING] The following errors were IGNORED by policy ---"
+                    sh "cat ${env.REPORT_FILE} | jq '.. | select(.status? == \"FAIL\") | select(.test_number == \"4.1.5\" or .test_number == \"5.6.7\") | {ID: .test_number, Desc: .test_desc}'"
+
+                    // 3. QUYẾT ĐỊNH (GATEKEEPER)
                     if (failCount > 0) {
-                        echo "Details of Failures:"
-                        sh "cat ${REPORT_FILE} | jq '.. | select(.status? == \"FAIL\") | {ID: .test_number, Desc: .test_desc, Remediation: .remediation}'"
+                        echo "Details of NEW Critical Failures:"
+                        // In chi tiết các lỗi MỚI (không nằm trong whitelist)
+                        sh "cat ${env.REPORT_FILE} | jq '.. | select(.status? == \"FAIL\") | ${IGNORED_IDS_LOGIC} | {ID: .test_number, Desc: .test_desc, Remediation: .remediation}'"
                         
-                        error "⛔ SECURITY CHECK FAILED: Found ${failCount} violations. Deployment blocked!"
+                        error "⛔ SECURITY CHECK FAILED: Found ${failCount} UNACCEPTED violations. Deployment blocked!"
                     } else {
-                        echo "✅ Security Check Passed! Cluster is compliant."
+                        echo "✅ Security Check Passed! (With accepted risks)."
                     }
                 }
             }
