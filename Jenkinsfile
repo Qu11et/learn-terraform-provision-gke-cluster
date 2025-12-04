@@ -39,28 +39,61 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Security Audit (CIS Benchmark)') {
             steps {
                 script {
-                    echo "--- Deploying Kube-bench Job ---"
+                    echo "--- 🛡️ PHASE 1: HARDENING CLUSTER (AUTO-FIX) ---"
                     
-                    sh 'kubectl delete job kube-bench-gke --ignore-not-found=true'
+                    sh "kubectl patch serviceaccount default -p '{\"automountServiceAccountToken\": false}' || true"
+                    echo "✅ Default ServiceAccount has been secured (Token mounting disabled)."
 
+                    echo "--- 🛡️ PHASE 2: RUNNING SECURITY AUDIT ---"
+                    
+                    // 2. Dọn dẹp Job cũ
+                    sh 'kubectl delete job kube-bench-gke --ignore-not-found=true'
+                    // Xóa luôn cả SA/RoleBinding cũ để tạo lại cho sạch (nếu muốn)
+                    sh 'kubectl delete serviceaccount kube-bench-sa --ignore-not-found=true'
+                    sh 'kubectl delete clusterrolebinding kube-bench-role-binding --ignore-not-found=true'
+
+                    // 3. Deploy Job mới (Kèm theo SA riêng đã định nghĩa trong YAML)
                     sh 'kubectl apply -f kube-bench-job.yaml'
 
+                    // 4. Chờ Job hoàn thành
                     try {
                         sh 'kubectl wait --for=condition=complete --timeout=120s job/kube-bench-gke'
                     } catch (Exception e) {
-                        error "Kube-bench job timed out! Something is wrong with the cluster."
+                        error "Kube-bench job timed out! Check pod logs."
                     }
 
-                    sh "kubectl logs job/kube-bench-gke > ${REPORT_FILE}"
-                    
-                    echo "Report saved to ${REPORT_FILE}"
+                    // 5. Lấy báo cáo
+                    sh "kubectl logs job/kube-bench-gke > ${env.REPORT_FILE}"
+                    echo "Report saved to ${env.REPORT_FILE}"
                 }
             }
         }
+        
+        // stage('Security Audit (CIS Benchmark)') {
+        //     steps {
+        //         script {
+        //             echo "--- Deploying Kube-bench Job ---"
+                    
+        //             sh 'kubectl delete job kube-bench-gke --ignore-not-found=true'
+
+        //             sh 'kubectl apply -f kube-bench-job.yaml'
+
+        //             try {
+        //                 sh 'kubectl wait --for=condition=complete --timeout=120s job/kube-bench-gke'
+        //             } catch (Exception e) {
+        //                 error "Kube-bench job timed out! Something is wrong with the cluster."
+        //             }
+
+        //             sh "kubectl logs job/kube-bench-gke > ${REPORT_FILE}"
+                    
+        //             echo "Report saved to ${REPORT_FILE}"
+        //         }
+        //     }
+        // }
 
         // stage('Analyze Security Results') {
         //     steps {
@@ -95,7 +128,7 @@ pipeline {
                     
                     // --- CẤU HÌNH CÁC ID MUỐN BỎ QUA ---
                     // Đây là danh sách các lỗi bạn chấp nhận rủi ro
-                    def IGNORED_IDS_LOGIC = 'select(.test_number != "4.1.5" and .test_number != "5.6.7")'
+                    def IGNORED_IDS_LOGIC = 'select(.test_number != "5.6.7")'
                     
                     // 1. Đếm số lỗi THỰC TẾ (Đã trừ các ID bị ignore)
                     // Logic: Lấy tất cả FAIL -> Lọc bỏ 4.1.5 và 5.6.7 -> Đếm số còn lại
@@ -111,7 +144,7 @@ pipeline {
 
                     // 2. In ra cảnh báo cho các lỗi bị Ignore (Để không bị quên)
                     echo "--- [WARNING] The following errors were IGNORED by policy ---"
-                    sh "cat ${env.REPORT_FILE} | jq '.. | select(.status? == \"FAIL\") | select(.test_number == \"4.1.5\" or .test_number == \"5.6.7\") | {ID: .test_number, Desc: .test_desc}'"
+                    sh "cat ${env.REPORT_FILE} | jq '.. | select(.status? == \"FAIL\") | select(.test_number == \"5.6.7\") | {ID: .test_number, Desc: .test_desc}'"
 
                     // 3. QUYẾT ĐỊNH (GATEKEEPER)
                     if (failCount > 0) {

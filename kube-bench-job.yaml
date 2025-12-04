@@ -1,3 +1,69 @@
+# apiVersion: batch/v1
+# kind: Job
+# metadata:
+#   name: kube-bench-gke
+# spec:
+#   template:
+#     spec:
+#       hostPID: true
+#       containers:
+#       - name: kube-bench
+#         image: aquasec/kube-bench:v0.13.0
+        
+#         command: ["kube-bench", "--benchmark", "gke-1.8.0", "--json"]
+        
+#         volumeMounts:
+#         - name: var-lib-kubelet
+#           mountPath: /var/lib/kubelet
+#           readOnly: true
+#         - name: etc-systemd
+#           mountPath: /etc/systemd
+#           readOnly: true
+#         - name: etc-kubernetes
+#           mountPath: /etc/kubernetes
+#           readOnly: true
+#       restartPolicy: Never
+#       volumes:
+#       - name: var-lib-kubelet
+#         hostPath:
+#           path: "/var/lib/kubelet"
+#       - name: etc-systemd
+#         hostPath:
+#           path: "/etc/systemd"
+#       - name: etc-kubernetes
+#         hostPath:
+#           path: "/etc/kubernetes"
+# ---------------------------------------------------
+# 1. Tạo ServiceAccount riêng cho Kube-bench
+# (Mặc định SA này sẽ có automountServiceAccountToken: true)
+# ---------------------------------------------------
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-bench-sa
+  namespace: default
+
+---
+# ---------------------------------------------------
+# 2. Cấp quyền Admin (tạm thời) cho SA này để nó quét được cả cụm
+# ---------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-bench-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin # Kube-bench cần quyền cao để đọc config của Node
+subjects:
+- kind: ServiceAccount
+  name: kube-bench-sa
+  namespace: default
+
+---
+# ---------------------------------------------------
+# 3. Định nghĩa Job Kube-bench
+# ---------------------------------------------------
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -6,12 +72,13 @@ spec:
   template:
     spec:
       hostPID: true
+      # QUAN TRỌNG: Bắt buộc Job dùng SA riêng này, không dùng default nữa
+      serviceAccountName: kube-bench-sa
+      
       containers:
       - name: kube-bench
         image: aquasec/kube-bench:v0.13.0
-        
         command: ["kube-bench", "--benchmark", "gke-1.8.0", "--json"]
-        
         volumeMounts:
         - name: var-lib-kubelet
           mountPath: /var/lib/kubelet
