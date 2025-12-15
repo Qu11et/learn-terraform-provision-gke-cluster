@@ -62,31 +62,31 @@ pipeline {
             }
         }
 
-        // stage('Analyze Security Results') {
-        //     steps {
-        //         script {
-        //             echo "--- Analyzing CIS Report ---"
+        stage('Analyze Security Results') {
+            steps {
+                script {
+                    echo "--- Analyzing CIS Report ---"
                     
-        //             def failCount = sh(
-        //                 script: "cat ${REPORT_FILE} | jq '[.. | select(.status? == \"FAIL\")] | length'", 
-        //                 returnStdout: true
-        //             ).trim().toInteger()
+                    def failCount = sh(
+                        script: "cat ${REPORT_FILE} | jq '[.. | select(.status? == \"FAIL\")] | length'", 
+                        returnStdout: true
+                    ).trim().toInteger()
 
-        //             echo "Total Security Failures Found: ${failCount}"
+                    echo "Total Security Failures Found: ${failCount}"
                     
-        //             archiveArtifacts artifacts: REPORT_FILE, fingerprint: true
+                    archiveArtifacts artifacts: REPORT_FILE, fingerprint: true
 
-        //             if (failCount > 0) {
-        //                 echo "Details of Failures:"
-        //                 sh "cat ${REPORT_FILE} | jq '.. | select(.status? == \"FAIL\") | {ID: .test_number, Desc: .test_desc, Remediation: .remediation}'"
+                    if (failCount > 0) {
+                        echo "Details of Failures:"
+                        sh "cat ${REPORT_FILE} | jq '.. | select(.status? == \"FAIL\") | {ID: .test_number, Desc: .test_desc, Remediation: .remediation}'"
                         
-        //                 error "⛔ SECURITY CHECK FAILED: Found ${failCount} violations. Deployment blocked!"
-        //             } else {
-        //                 echo "✅ Security Check Passed! Cluster is compliant."
-        //             }
-        //         }
-        //     }
-        // }
+                        error "⛔ SECURITY CHECK FAILED: Found ${failCount} violations. Deployment blocked!"
+                    } else {
+                        echo "✅ Security Check Passed! Cluster is compliant."
+                    }
+                }
+            }
+        }
 
         stage('Analyze Security Results') {
             steps {
