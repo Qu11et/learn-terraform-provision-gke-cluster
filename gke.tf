@@ -1,4 +1,4 @@
-# Copyright (c) HashiCorp, Inc. text 3
+# Copyright (c) HashiCorp, Inc. text 4
 # SPDX-License-Identifier: MPL-2.0
 
 variable "gke_username" {
